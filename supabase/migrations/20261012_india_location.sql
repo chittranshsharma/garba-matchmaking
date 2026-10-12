@@ -52,6 +52,7 @@ language sql security definer set search_path = '' as $$
     p.id,
     p.name,
     date_part('year', age(current_date, p.birth_date))::integer,
+    p.gender,
     p.area,
     p.state,
     p.city,
