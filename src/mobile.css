@@ -1,0 +1,57 @@
+/* Keep the festival feel while reducing paint and layout work on phones. */
+@media (max-width: 760px) {
+  html, body, #root { width: 100%; max-width: 100%; overflow-x: clip; }
+  .cinema-hero { min-height: 100svh; }
+  .cinema-photo { will-change: auto; }
+  .light-sweep { filter: blur(8px); }
+  .light-sweep.second { display: none; }
+  .floating-story { backdrop-filter: none; background: #fff5e8f5; }
+  .circle-section, .last-song { content-visibility: auto; contain-intrinsic-size: auto 850px; }
+  .experience-tile { contain: layout paint; }
+  .discover-empty-photo { filter: none; }
+  .discover-empty-glow { filter: none; background: radial-gradient(circle, #ff945355, transparent 70%); }
+  .discover-secondary { backdrop-filter: none; background: #2d1837e8; }
+  .crop-backdrop { backdrop-filter: none; }
+  .profile-card { transform: none; }
+  .profile-card:hover { transform: none; }
+}
+
+@media (max-width: 680px) {
+  .main-panel { padding: 24px 14px calc(88px + env(safe-area-inset-bottom)); }
+  .topbar { padding-inline: 16px; }
+  .mobile-nav {
+    height: calc(64px + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .mobile-nav button { flex: 1; min-width: 0; min-height: 44px; }
+  .discover-layout.is-empty .filters-panel { order: 1; }
+  .discover-empty { min-height: 530px; }
+  .discover-empty-content { padding: 36px 23px 70px; }
+  .discover-empty h2 { margin: 30px 0 18px; }
+  .discover-main .filters-panel { margin-top: 0; }
+  .discover-layout.is-empty .filters-panel { margin-top: 18px; }
+  .wizard-intro { min-height: 220px; padding-top: 72px; padding-bottom: 18px; }
+  .wizard-card, .inline-form .wizard-card { min-height: 0; margin-bottom: 90px; }
+  .wizard-progress { margin-bottom: 26px; }
+  .wizard-question h2 { font-size: clamp(29px, 8vw, 36px); }
+  .match-list { display: flex; gap: 7px; max-height: none; overflow-x: auto; overscroll-behavior-inline: contain; }
+  .match-item { flex: 0 0 auto; width: auto; min-width: 150px; }
+  .match-empty { width: 100%; padding: 38px 16px; }
+  .chat { height: min(64dvh, 570px); min-height: 370px; }
+  .chat-header { padding-inline: 14px; }
+  .chat-messages { padding: 15px; }
+  .chat-compose { padding: 10px; }
+  .chat-compose input, .profile-form input, .profile-form select, .profile-form textarea,
+  .filters-panel select, .wizard-card input, .wizard-card textarea { font-size: 16px; }
+  .swipe-actions button { width: 58px; height: 58px; }
+  .slide-edge { min-width: 44px; min-height: 44px; }
+}
+
+@media (max-width: 380px) {
+  .cinema-content h1 { font-size: clamp(48px, 14vw, 56px); }
+  .energy-picker > div { flex-wrap: wrap; }
+  .energy-picker button { min-height: 42px; }
+  .discover-empty h2 { font-size: 44px; }
+  .discover-empty-content { padding-inline: 18px; }
+  .wizard-intro h1 { font-size: 36px; }
+}
