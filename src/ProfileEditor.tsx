@@ -3,7 +3,7 @@ import { age, AREAS, GENDERS, photoUrl, PROMPTS, resizePhoto, supabase, type Are
 import MotionScene from './MotionScene'
 import PhotoCropper from './PhotoCropper'
 
-type Props = { userId: string, initial?: Profile, onSaved: (profile: Profile) => void, onSignOut: () => void }
+type Props = { userId: string, initial?: Profile, onSaved: (profile: Profile) => void, onSignOut: () => void, onDelete?: () => Promise<void> }
 
 const steps = [
   { label: 'The introduction', title: 'What should we call you?', hint: 'Start with your first name or whatever you like to go by.', scene: 'Every great circle starts with a hello.' },
@@ -20,7 +20,7 @@ const steps = [
   { label: 'The final touch', title: 'Anything else to say?', hint: 'An optional one-liner about your garba vibe.', scene: 'Your circle is waiting.' },
 ] as const
 
-export default function ProfileEditor({ userId, initial, onSaved, onSignOut }: Props) {
+export default function ProfileEditor({ userId, initial, onSaved, onSignOut, onDelete }: Props) {
   const [step, setStep] = useState(0)
   const [name, setName] = useState(initial?.name || '')
   const [birthDate, setBirthDate] = useState(initial?.birth_date || '')
@@ -36,6 +36,8 @@ export default function ProfileEditor({ userId, initial, onSaved, onSignOut }: P
   const [cropSource, setCropSource] = useState<{ index: number, file: File } | null>(null)
   const [openingCrop, setOpeningCrop] = useState(false)
   const [error, setError] = useState('')
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const paths = initial?.photo_paths?.length ? initial.photo_paths : initial?.photo_path ? [initial.photo_path] : []
   const current = steps[step]
   const maxBirthDate = new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().slice(0, 10)
@@ -172,6 +174,27 @@ export default function ProfileEditor({ userId, initial, onSaved, onSignOut }: P
       {error && <div className="form-error wizard-error" role="alert">{error}</div>}
       <div className="wizard-actions"><button type="button" className="wizard-back" onClick={() => { setStep(value => Math.max(0, value - 1)); setError('') }} disabled={step === 0 || busy} aria-label="Previous step">← <span>Back</span></button><button className="primary-btn wizard-next" disabled={busy}>{busy ? 'Saving your story…' : step === steps.length - 1 ? initial ? 'Save my profile ↗' : 'Join the circle ↗' : 'Continue ↗'}</button></div>
       <button type="button" className="signout-link" onClick={onSignOut}>Sign out</button>
+      {initial && onDelete && (
+        <div className="delete-profile-zone">
+          {deleteConfirm ? (
+            <>
+              <strong>Delete your profile?</strong>
+              <p>This will permanently remove your profile, photos, matches, and messages. This cannot be undone.</p>
+              <div className="delete-profile-actions">
+                <button type="button" onClick={() => setDeleteConfirm(false)} disabled={deleting}>Cancel</button>
+                <button type="button" className="delete-confirm" disabled={deleting} onClick={async () => {
+                  setDeleting(true)
+                  setError('')
+                  try { await onDelete() }
+                  catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not delete profile. Try again.'); setDeleting(false); setDeleteConfirm(false) }
+                }}>{deleting ? 'Deleting…' : 'Yes, delete everything'}</button>
+              </div>
+            </>
+          ) : (
+            <button type="button" onClick={() => setDeleteConfirm(true)}>Delete my profile</button>
+          )}
+        </div>
+      )}
     </form>
     {cropSource && <PhotoCropper key={cropSource.file.name + cropSource.file.lastModified} file={cropSource.file} number={cropSource.index + 1} onCancel={() => setCropSource(null)} onDone={file => {
       setPhotos(current => current.map((item, index) => index === cropSource.index ? file : item))

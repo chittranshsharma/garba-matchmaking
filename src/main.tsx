@@ -14,8 +14,10 @@ import './motion.css'
 import './wizard.css'
 import './discover.css'
 import './mobile.css'
+import './likes.css'
 
 type Candidate = Omit<Profile, 'birth_date' | 'interested_in'> & { age: number }
+type IncomingLike = Candidate & { liked_at: string }
 type View = 'discover' | 'matches' | 'profile'
 
 function App() {
@@ -25,6 +27,10 @@ function App() {
   const [error, setError] = useState('')
   const [view, setView] = useState<View>('discover')
   const [matches, setMatches] = useState<Match[]>([])
+  const [likes, setLikes] = useState<IncomingLike[]>([])
+  const [likesLoading, setLikesLoading] = useState(false)
+  const [selectedLike, setSelectedLike] = useState<IncomingLike | null>(null)
+  const [likeAction, setLikeAction] = useState(false)
   const [activeMatch, setActiveMatch] = useState<Match | null>(null)
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [filters, setFilters] = useState<{ min: number, max: number, area: Area | '' }>({ min: 18, max: 60, area: '' })
@@ -95,8 +101,25 @@ function App() {
     setMatches(await Promise.all((data as Match[]).map(async match => ({ ...match, other_photo_url: await photoUrl(match.other_photo_path) }))))
   }
 
+  async function loadLikes() {
+    if (!supabase) return
+    setLikesLoading(true)
+    try {
+      const { data, error: e } = await supabase.rpc('my_likes')
+      if (e) { setError(e.message); return }
+      const people = data as IncomingLike[]
+      const paths = [...new Set(people.flatMap(person => person.photo_paths?.length ? person.photo_paths : person.photo_path ? [person.photo_path] : []))]
+      const { data: signed, error: photoError } = paths.length
+        ? await supabase.storage.from('profile-photos').createSignedUrls(paths, 3600)
+        : { data: [], error: null }
+      if (photoError) console.warn('Could not load incoming like photos', photoError)
+      const urls = new Map(signed?.filter(item => item.path && item.signedUrl).map(item => [item.path!, item.signedUrl!]) || [])
+      setLikes(people.map(person => ({ ...person, photo_urls: (person.photo_paths?.length ? person.photo_paths : person.photo_path ? [person.photo_path] : []).map(path => urls.get(path)).filter((url): url is string => Boolean(url)) })))
+    } finally { setLikesLoading(false) }
+  }
+
   useEffect(() => { if (profile) void loadCandidates() }, [profile?.id, profile?.gender, profile?.interested_in.join(','), appliedFilters.min, appliedFilters.max, appliedFilters.area])
-  useEffect(() => { if (profile && view === 'matches') void loadMatches() }, [profile?.id, view])
+  useEffect(() => { if (profile && view === 'matches') { void loadMatches(); void loadLikes() } }, [profile?.id, view])
   useEffect(() => {
     const nextPhoto = candidates[1]?.photo_urls?.[0]
     if (nextPhoto) { const image = new Image(); image.fetchPriority = 'low'; image.src = nextPhoto }
@@ -114,6 +137,41 @@ function App() {
     setSwipeMotion('')
     swipePending.current = false
     if (data) { setMatchReveal(person); void loadMatches() }
+  }
+
+  async function respondToLike(person: IncomingLike, liked: boolean) {
+    if (!supabase || likeAction) return
+    setLikeAction(true)
+    setError('')
+    try {
+      const { data, error: e } = await supabase.rpc('swipe_profile', { p_target: person.id, p_liked: liked })
+      if (e) { setError(e.message); return }
+      setLikes(current => current.filter(like => like.id !== person.id))
+      setCandidates(current => current.filter(candidate => candidate.id !== person.id))
+      setSelectedLike(null)
+      if (data) { setMatchReveal(person); void loadMatches() }
+    } finally { setLikeAction(false) }
+  }
+
+  async function deleteProfile() {
+    if (!supabase || !session) throw new Error('Sign in again to delete your profile.')
+    const userId = session.user.id
+    const bucket = supabase.storage.from('profile-photos')
+    const { data: files, error: listError } = await bucket.list(userId, { limit: 1000 })
+    if (listError) throw listError
+    const paths = (files || []).filter(file => file.id).map(file => `${userId}/${file.name}`)
+    if (paths.length) {
+      const { error: removeError } = await bucket.remove(paths)
+      if (removeError) throw removeError
+    }
+    const { data, error: deleteError } = await supabase.from('profiles').delete().eq('id', userId).select('id')
+    if (deleteError) throw deleteError
+    if (!data?.length) throw new Error('Could not delete your profile. Please try again.')
+    setProfile(null)
+    setMatches([])
+    setLikes([])
+    setActiveMatch(null)
+    await supabase.auth.signOut()
   }
 
   async function block(otherId: string) {
@@ -157,11 +215,12 @@ function App() {
             {person ? <><div className={`swipe-frame ${swipeMotion ? `fly-${swipeMotion}` : ''}`}><ProfileCard key={person.id} person={person} onSwipe={liked => void swipe(person, liked)} /></div><div className="swipe-actions"><button className="action-pass" disabled={Boolean(swipeMotion)} onClick={() => swipe(person, false)} aria-label={`Pass on ${person.name}`}>×</button><span>THE VIBE CHECK <i>✦</i></span><button className="action-like" disabled={Boolean(swipeMotion)} onClick={() => swipe(person, true)} aria-label={`Like ${person.name}`}>♥</button></div><p className="swipe-hint">Tap through their photos &amp; stories before you decide.</p></> : <DiscoverEmpty filtersActive={filtersActive} loading={discoverLoading} refreshing={refreshing} onRefresh={() => { void refreshCandidates() }} onReset={() => setFilters({ min: 18, max: 60, area: '' })} onProfile={() => setView('profile')} />}
           </div><div className="filters-panel"><span className="filter-kicker">✦ &nbsp; TUNE YOUR CIRCLE</span><div className="filters-title"><span>✧</span><h2>Your preferences</h2></div><p>Make your circle feel right for you.</p><label>Area<select value={filters.area} onChange={e => setFilters({ ...filters, area: e.target.value as Area | '' })}><option value="">Anywhere in Delhi NCR</option>{AREAS.map(area => <option key={area}>{area}</option>)}</select></label><AgeRange min={filters.min} max={filters.max} onChange={(min, max) => setFilters(current => ({ ...current, min, max }))} /><div className="filter-foot">✦ &nbsp;All matches are based on mutual preferences.</div></div></div>
         </>}
-        {view === 'matches' && <><div className="page-heading compact"><div><span className="eyebrow">GOOD VIBES, BOTH WAYS</span><h1>Your <em>matches.</em></h1><p>The people who liked you back. Go start a conversation.</p></div></div><div className={activeMatch ? 'messages-layout chat-open' : 'messages-layout'}><div className="match-list">{matches.length ? matches.map(match => <button className={activeMatch?.id === match.id ? 'match-item selected' : 'match-item'} key={match.id} onClick={() => setActiveMatch(match)}><Avatar name={match.other_name} url={match.other_photo_url} /><span><strong>{match.other_name}</strong><small>{match.other_area}</small></span><span className="match-arrow">›</span></button>) : <div className="match-empty"><span>♡</span><h3>No matches yet</h3><p>Discover someone you’d like to meet.</p><button className="text-btn" onClick={() => setView('discover')}>Explore profiles →</button></div>}</div><div className="chat-pane">{activeMatch ? <Chat key={activeMatch.id} match={activeMatch} userId={session.user.id} onBack={() => setActiveMatch(null)} onBlock={() => block(activeMatch.other_id)} onReport={() => report(activeMatch.other_id)} /> : <div className="chat-placeholder"><span>✺</span><h3>A conversation starts here.</h3><p>Choose a match to say hello.</p></div>}</div></div></>}
-        {view === 'profile' && <><div className="page-heading compact"><div><span className="eyebrow">MAKE IT YOU</span><h1>Your <em>profile.</em></h1><p>This is what people in your circle get to see.</p></div></div><ProfileEditor userId={session.user.id} initial={profile} onSaved={setProfile} onSignOut={() => supabase!.auth.signOut()} /></>}
+        {view === 'matches' && <><div className="page-heading compact"><div><span className="eyebrow">GOOD VIBES, BOTH WAYS</span><h1>Your <em>matches.</em></h1><p>The people who liked you back. Go start a conversation.</p></div></div><section className="likes-section" aria-label="People who liked you"><div className="likes-heading"><span>✦</span><div><h2>Liked you <b>{likes.length}</b></h2><p>They made the first move. See who catches your eye.</p></div></div><div className="likes-list">{likesLoading ? <p className="likes-empty">Finding your admirers…</p> : likes.length ? likes.map(like => <button className="like-card" key={like.id} onClick={() => setSelectedLike(like)} aria-label={`View ${like.name}'s profile`}>{like.photo_urls?.[0] ? <img src={like.photo_urls[0]} alt="" loading="lazy" decoding="async" /> : <span className="like-photo-fallback">✺</span>}<span><strong>{like.name}, {like.age}</strong><small>{like.area} · Tap to view</small></span><i>↗</i></button>) : <p className="likes-empty">No new likes yet. When someone likes you, they’ll appear here.</p>}</div></section><div className={activeMatch ? 'messages-layout chat-open' : 'messages-layout'}><div className="match-list">{matches.length ? matches.map(match => <button className={activeMatch?.id === match.id ? 'match-item selected' : 'match-item'} key={match.id} onClick={() => setActiveMatch(match)}><Avatar name={match.other_name} url={match.other_photo_url} /><span><strong>{match.other_name}</strong><small>{match.other_area}</small></span><span className="match-arrow">›</span></button>) : <div className="match-empty"><span>♡</span><h3>No matches yet</h3><p>Discover someone you’d like to meet.</p><button className="text-btn" onClick={() => setView('discover')}>Explore profiles →</button></div>}</div><div className="chat-pane">{activeMatch ? <Chat key={activeMatch.id} match={activeMatch} userId={session.user.id} onBack={() => setActiveMatch(null)} onBlock={() => block(activeMatch.other_id)} onReport={() => report(activeMatch.other_id)} /> : <div className="chat-placeholder"><span>✺</span><h3>A conversation starts here.</h3><p>Choose a match to say hello.</p></div>}</div></div></>}
+        {view === 'profile' && <><div className="page-heading compact"><div><span className="eyebrow">MAKE IT YOU</span><h1>Your <em>profile.</em></h1><p>This is what people in your circle get to see.</p></div></div><ProfileEditor userId={session.user.id} initial={profile} onSaved={setProfile} onSignOut={() => supabase!.auth.signOut()} onDelete={deleteProfile} /></>}
       </main>
     </div>
     <nav className={view === 'matches' && activeMatch ? 'mobile-nav chat-hidden' : 'mobile-nav'}><button className={view === 'discover' ? 'current' : ''} onClick={() => setView('discover')}>✦<span>Discover</span></button><button className={view === 'matches' ? 'current' : ''} onClick={() => setView('matches')}>♡<span>Matches</span></button><button className={view === 'profile' ? 'current' : ''} onClick={() => setView('profile')}>◌<span>Profile</span></button></nav>
+    {selectedLike && <div className="like-overlay" onClick={() => { if (!likeAction) setSelectedLike(null) }}><div className="like-detail" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={`${selectedLike.name}'s profile`}><div className="like-detail-top"><span>✦ THEY LIKED YOU</span><button onClick={() => setSelectedLike(null)} disabled={likeAction} aria-label="Close profile">×</button></div><ProfileCard key={selectedLike.id} person={selectedLike} onSwipe={liked => { void respondToLike(selectedLike, liked) }} /><div className="like-detail-actions"><button className="action-pass" onClick={() => { void respondToLike(selectedLike, false) }} disabled={likeAction} aria-label={`Pass on ${selectedLike.name}`}>×</button><span>{likeAction ? 'SAVING…' : 'YOUR MOVE'}</span><button className="action-like" onClick={() => { void respondToLike(selectedLike, true) }} disabled={likeAction} aria-label={`Like ${selectedLike.name} back`}>♥</button></div></div></div>}
     {matchReveal && <div className="modal-backdrop" onClick={() => setMatchReveal(null)}><div className="match-modal" onClick={e => e.stopPropagation()}><span className="match-spark">✺</span><span className="eyebrow">IT'S A MATCH</span><h2>You and {matchReveal.name}<br /><em>clicked.</em></h2><p>Go say hello and see where the rhythm takes you.</p><button className="primary-btn" onClick={() => { setMatchReveal(null); setView('matches') }}>Open matches</button><button className="text-btn" onClick={() => setMatchReveal(null)}>Keep discovering</button></div></div>}
   </div>
 }

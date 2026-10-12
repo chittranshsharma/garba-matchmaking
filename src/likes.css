@@ -1,0 +1,41 @@
+.likes-section { margin: 0 0 28px; padding: 22px; border: 1px solid #e9d8df; border-radius: 22px; background: linear-gradient(115deg, #fff9ee, #fff0ef 72%, #f7e8fa); box-shadow: 0 12px 35px #50344a0c; }
+.likes-heading { display: flex; align-items: center; gap: 13px; margin-bottom: 18px; }
+.likes-heading > span { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: #311837; color: #ffc686; font-size: 24px; }
+.likes-heading h2 { margin: 0 0 3px; font: 700 25px 'Playfair Display', serif; color: #301735; }
+.likes-heading h2 b { display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 6px; border-radius: 50px; background: #c54770; color: #fff; font: 800 12px 'DM Sans', sans-serif; vertical-align: middle; }
+.likes-heading p { margin: 0; color: #826b7e; font-size: 12px; }
+.likes-list { display: flex; gap: 12px; overflow-x: auto; padding: 2px 2px 6px; scroll-snap-type: x proximity; }
+.likes-empty { margin: 2px 0; color: #7d687a; font-size: 13px; }
+.like-card { flex: 0 0 210px; display: flex; align-items: center; gap: 10px; border: 1px solid #ead7de; border-radius: 14px; padding: 8px; background: #fff; text-align: left; box-shadow: 0 5px 14px #56294312; scroll-snap-align: start; transition: transform .2s, box-shadow .2s; }
+.like-card:hover { transform: translateY(-3px); box-shadow: 0 10px 22px #56294322; }
+.like-card img, .like-photo-fallback { flex: none; width: 58px; height: 62px; border-radius: 10px; object-fit: cover; }
+.like-photo-fallback { display: grid; place-items: center; background: #5d2d59; color: #ffcb93; font-size: 30px; }
+.like-card strong, .like-card small { display: block; }
+.like-card strong { color: #341c39; font-size: 13px; }
+.like-card small { margin-top: 5px; color: #947a8e; font-size: 10px; }
+.like-card i { margin-left: auto; align-self: flex-start; color: #c55d76; font-size: 18px; font-style: normal; }
+.like-overlay { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; background: #180d26e8; }
+.like-detail { width: min(100%, 470px); max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain; border-radius: 24px; padding: 13px; background: #fff8f2; box-shadow: 0 25px 70px #10091ccc; }
+.like-detail-top { display: flex; align-items: center; justify-content: space-between; padding: 1px 7px 11px; color: #ad506b; font-size: 10px; font-weight: 900; letter-spacing: 2px; }
+.like-detail-top button { width: 36px; height: 36px; border: 0; border-radius: 50%; background: #f5e2e7; color: #62294b; font-size: 25px; }
+.like-detail .profile-visual { height: min(45vh, 380px); }
+.like-detail .profile-card { transform: none; }
+.like-detail-actions { display: flex; align-items: center; justify-content: center; gap: 30px; padding: 13px 0 2px; }
+.like-detail-actions button { width: 56px; height: 56px; border-radius: 50%; font-size: 30px; }
+.like-detail-actions span { color: #ad647c; font-size: 10px; font-weight: 900; letter-spacing: 2px; }
+.delete-profile-zone { margin-top: 16px; padding: 17px; border: 1px solid #edd5db; border-radius: 14px; background: #fff6f5; }
+.delete-profile-zone > button { border: 0; background: none; color: #ad3c5b; font-size: 12px; font-weight: 800; text-decoration: underline; }
+.delete-profile-zone strong { display: block; color: #60253a; font-size: 14px; }
+.delete-profile-zone p { margin: 8px 0 13px; color: #806b75; font-size: 12px; line-height: 1.5; }
+.delete-profile-actions { display: flex; gap: 10px; }
+.delete-profile-actions button { flex: 1; min-height: 42px; border-radius: 9px; border: 1px solid #e9c6d0; background: #fff; color: #6e4560; font-size: 12px; font-weight: 800; }
+.delete-profile-actions .delete-confirm { border-color: #a73550; background: #a73550; color: #fff; }
+@media (max-width: 680px) {
+  .likes-section { padding: 16px; margin-bottom: 18px; }
+  .likes-heading h2 { font-size: 22px; }
+  .likes-heading p { line-height: 1.4; }
+  .like-card { flex-basis: 190px; }
+  .like-overlay { padding: 0; }
+  .like-detail { max-height: 100dvh; border-radius: 0; padding: max(10px, env(safe-area-inset-top)) 12px max(10px, env(safe-area-inset-bottom)); }
+  .like-detail .profile-visual { height: min(48vh, 360px); }
+}
