@@ -97,6 +97,10 @@ function App() {
 
   useEffect(() => { if (profile) void loadCandidates() }, [profile?.id, profile?.gender, profile?.interested_in.join(','), appliedFilters.min, appliedFilters.max, appliedFilters.area])
   useEffect(() => { if (profile && view === 'matches') void loadMatches() }, [profile?.id, view])
+  useEffect(() => {
+    const nextPhoto = candidates[1]?.photo_urls?.[0]
+    if (nextPhoto) { const image = new Image(); image.fetchPriority = 'low'; image.src = nextPhoto }
+  }, [candidates])
 
   async function swipe(person: Candidate, liked: boolean) {
     if (!supabase || swipePending.current) return
@@ -153,11 +157,11 @@ function App() {
             {person ? <><div className={`swipe-frame ${swipeMotion ? `fly-${swipeMotion}` : ''}`}><ProfileCard key={person.id} person={person} onSwipe={liked => void swipe(person, liked)} /></div><div className="swipe-actions"><button className="action-pass" disabled={Boolean(swipeMotion)} onClick={() => swipe(person, false)} aria-label={`Pass on ${person.name}`}>×</button><span>THE VIBE CHECK <i>✦</i></span><button className="action-like" disabled={Boolean(swipeMotion)} onClick={() => swipe(person, true)} aria-label={`Like ${person.name}`}>♥</button></div><p className="swipe-hint">Tap through their photos &amp; stories before you decide.</p></> : <DiscoverEmpty filtersActive={filtersActive} loading={discoverLoading} refreshing={refreshing} onRefresh={() => { void refreshCandidates() }} onReset={() => setFilters({ min: 18, max: 60, area: '' })} onProfile={() => setView('profile')} />}
           </div><div className="filters-panel"><span className="filter-kicker">✦ &nbsp; TUNE YOUR CIRCLE</span><div className="filters-title"><span>✧</span><h2>Your preferences</h2></div><p>Make your circle feel right for you.</p><label>Area<select value={filters.area} onChange={e => setFilters({ ...filters, area: e.target.value as Area | '' })}><option value="">Anywhere in Delhi NCR</option>{AREAS.map(area => <option key={area}>{area}</option>)}</select></label><AgeRange min={filters.min} max={filters.max} onChange={(min, max) => setFilters(current => ({ ...current, min, max }))} /><div className="filter-foot">✦ &nbsp;All matches are based on mutual preferences.</div></div></div>
         </>}
-        {view === 'matches' && <><div className="page-heading compact"><div><span className="eyebrow">GOOD VIBES, BOTH WAYS</span><h1>Your <em>matches.</em></h1><p>The people who liked you back. Go start a conversation.</p></div></div><div className="messages-layout"><div className="match-list">{matches.length ? matches.map(match => <button className={activeMatch?.id === match.id ? 'match-item selected' : 'match-item'} key={match.id} onClick={() => setActiveMatch(match)}><Avatar name={match.other_name} url={match.other_photo_url} /><span><strong>{match.other_name}</strong><small>{match.other_area}</small></span><span className="match-arrow">›</span></button>) : <div className="match-empty"><span>♡</span><h3>No matches yet</h3><p>Discover someone you’d like to meet.</p><button className="text-btn" onClick={() => setView('discover')}>Explore profiles →</button></div>}</div><div className="chat-pane">{activeMatch ? <Chat key={activeMatch.id} match={activeMatch} userId={session.user.id} onBlock={() => block(activeMatch.other_id)} onReport={() => report(activeMatch.other_id)} /> : <div className="chat-placeholder"><span>✺</span><h3>A conversation starts here.</h3><p>Choose a match to say hello.</p></div>}</div></div></>}
+        {view === 'matches' && <><div className="page-heading compact"><div><span className="eyebrow">GOOD VIBES, BOTH WAYS</span><h1>Your <em>matches.</em></h1><p>The people who liked you back. Go start a conversation.</p></div></div><div className={activeMatch ? 'messages-layout chat-open' : 'messages-layout'}><div className="match-list">{matches.length ? matches.map(match => <button className={activeMatch?.id === match.id ? 'match-item selected' : 'match-item'} key={match.id} onClick={() => setActiveMatch(match)}><Avatar name={match.other_name} url={match.other_photo_url} /><span><strong>{match.other_name}</strong><small>{match.other_area}</small></span><span className="match-arrow">›</span></button>) : <div className="match-empty"><span>♡</span><h3>No matches yet</h3><p>Discover someone you’d like to meet.</p><button className="text-btn" onClick={() => setView('discover')}>Explore profiles →</button></div>}</div><div className="chat-pane">{activeMatch ? <Chat key={activeMatch.id} match={activeMatch} userId={session.user.id} onBack={() => setActiveMatch(null)} onBlock={() => block(activeMatch.other_id)} onReport={() => report(activeMatch.other_id)} /> : <div className="chat-placeholder"><span>✺</span><h3>A conversation starts here.</h3><p>Choose a match to say hello.</p></div>}</div></div></>}
         {view === 'profile' && <><div className="page-heading compact"><div><span className="eyebrow">MAKE IT YOU</span><h1>Your <em>profile.</em></h1><p>This is what people in your circle get to see.</p></div></div><ProfileEditor userId={session.user.id} initial={profile} onSaved={setProfile} onSignOut={() => supabase!.auth.signOut()} /></>}
       </main>
     </div>
-    <nav className="mobile-nav"><button className={view === 'discover' ? 'current' : ''} onClick={() => setView('discover')}>✦<span>Discover</span></button><button className={view === 'matches' ? 'current' : ''} onClick={() => setView('matches')}>♡<span>Matches</span></button><button className={view === 'profile' ? 'current' : ''} onClick={() => setView('profile')}>◌<span>Profile</span></button></nav>
+    <nav className={view === 'matches' && activeMatch ? 'mobile-nav chat-hidden' : 'mobile-nav'}><button className={view === 'discover' ? 'current' : ''} onClick={() => setView('discover')}>✦<span>Discover</span></button><button className={view === 'matches' ? 'current' : ''} onClick={() => setView('matches')}>♡<span>Matches</span></button><button className={view === 'profile' ? 'current' : ''} onClick={() => setView('profile')}>◌<span>Profile</span></button></nav>
     {matchReveal && <div className="modal-backdrop" onClick={() => setMatchReveal(null)}><div className="match-modal" onClick={e => e.stopPropagation()}><span className="match-spark">✺</span><span className="eyebrow">IT'S A MATCH</span><h2>You and {matchReveal.name}<br /><em>clicked.</em></h2><p>Go say hello and see where the rhythm takes you.</p><button className="primary-btn" onClick={() => { setMatchReveal(null); setView('matches') }}>Open matches</button><button className="text-btn" onClick={() => setMatchReveal(null)}>Keep discovering</button></div></div>}
   </div>
 }
@@ -169,6 +173,9 @@ function ProfileCard({ person, onSwipe }: { person: Candidate, onSwipe: (liked: 
   const [drag, setDrag] = useState(0)
   const dragStart = React.useRef<{ x: number, y: number } | null>(null)
   const photos = person.photo_urls?.filter((url): url is string => Boolean(url)) || []
+  const preloadOtherPhotos = () => {
+    photos.slice(1).forEach(url => { const image = new Image(); image.fetchPriority = 'low'; image.src = url })
+  }
   const content = [
     { type: 'photo', value: photos[0] },
     ...(person.prompt_answers || []).slice(0, 1).map(item => ({ type: 'prompt', value: item })),
@@ -189,7 +196,7 @@ function ProfileCard({ person, onSwipe }: { person: Candidate, onSwipe: (liked: 
       dragStart.current = null; setDrag(0)
     }} onPointerCancel={() => { dragStart.current = null; setDrag(0) }}>
       {Math.abs(drag) > 30 && <span className={drag > 0 ? 'drag-label like' : 'drag-label pass'}>{drag > 0 ? 'GOOD VIBES ♡' : 'NEXT PERSON ↗'}</span>}
-      {current?.type === 'photo' && typeof current.value === 'string' ? <img key={current.value} src={current.value} alt={`${person.name}'s photo ${slide + 1}`} decoding="async" /> :
+      {current?.type === 'photo' && typeof current.value === 'string' ? <img key={current.value} src={current.value} alt={`${person.name}'s photo ${slide + 1}`} decoding="async" fetchPriority="high" onLoad={slide === 0 ? preloadOtherPhotos : undefined} /> :
         current?.type === 'prompt' && typeof current.value === 'object' ? <div className="prompt-slide"><span>THE REAL ME ✦</span><h3>{current.value.prompt}</h3><p>{current.value.answer}</p><i>✺</i></div> :
         <div className="profile-placeholder"><span>✺</span><strong>{person.name.charAt(0).toUpperCase()}</strong></div>}
       <div className="slide-dots" aria-label="Profile pages">{content.map((_, index) => <button key={index} className={index === slide ? 'active' : ''} onClick={() => setSlide(index)} aria-label={`Show profile page ${index + 1}`} />)}</div>
@@ -200,13 +207,33 @@ function ProfileCard({ person, onSwipe }: { person: Candidate, onSwipe: (liked: 
   </article>
 }
 
-function Chat({ match, userId, onBlock, onReport }: { match: Match, userId: string, onBlock: () => void, onReport: () => void }) {
+function Chat({ match, userId, onBack, onBlock, onReport }: { match: Match, userId: string, onBack: () => void, onBlock: () => void, onReport: () => void }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [draft, setDraft] = useState('')
   const [error, setError] = useState('')
   const [sending, setSending] = useState(false)
   const [menu, setMenu] = useState(false)
-  const endRef = React.useRef<HTMLDivElement>(null)
+  const messagesRef = React.useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const viewport = window.visualViewport
+    if (!viewport || !window.matchMedia('(max-width: 680px)').matches) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const syncViewport = () => {
+      document.documentElement.style.setProperty('--chat-viewport-height', `${viewport.height}px`)
+      document.documentElement.style.setProperty('--chat-viewport-top', `${viewport.offsetTop}px`)
+    }
+    syncViewport()
+    viewport.addEventListener('resize', syncViewport)
+    viewport.addEventListener('scroll', syncViewport)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.documentElement.style.removeProperty('--chat-viewport-height')
+      document.documentElement.style.removeProperty('--chat-viewport-top')
+      viewport.removeEventListener('resize', syncViewport)
+      viewport.removeEventListener('scroll', syncViewport)
+    }
+  }, [])
   useEffect(() => {
     if (!supabase) return
     let live = true
@@ -220,7 +247,7 @@ function Chat({ match, userId, onBlock, onReport }: { match: Match, userId: stri
     }).subscribe()
     return () => { live = false; void supabase!.removeChannel(channel) }
   }, [match.id])
-  useEffect(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), [messages.length])
+  useEffect(() => { const list = messagesRef.current; if (list) list.scrollTo({ top: list.scrollHeight, behavior: 'instant' }) }, [messages.length])
 
   async function send(e: React.FormEvent) {
     e.preventDefault()
@@ -233,7 +260,7 @@ function Chat({ match, userId, onBlock, onReport }: { match: Match, userId: stri
     setSending(false)
   }
 
-  return <div className="chat"><div className="chat-header"><Avatar name={match.other_name} url={match.other_photo_url} /><div><strong>{match.other_name}</strong><small>{match.other_area} · Delhi NCR</small></div><div className="chat-menu-wrap"><button className="menu-button" onClick={() => setMenu(!menu)} aria-label="Conversation options">⋯</button>{menu && <div className="chat-menu"><button onClick={() => { setMenu(false); onReport() }}>Report</button><button onClick={() => { setMenu(false); onBlock() }}>Block</button></div>}</div></div><div className="chat-messages">{messages.length ? messages.map(message => <div className={message.sender_id === userId ? 'bubble mine' : 'bubble'} key={message.id}><span>{message.body}</span><time>{new Date(message.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time></div>) : <div className="chat-start"><span>✺</span><h3>Say hello to {match.other_name}</h3><p>A good conversation is the first step.</p></div>}<div ref={endRef} /></div>{error && <div className="chat-error" role="alert">{error}</div>}<form className="chat-compose" onSubmit={send}><input aria-label="Message" maxLength={1000} placeholder="Write a message…" value={draft} onChange={e => setDraft(e.target.value)} /><button disabled={!draft.trim() || sending} aria-label="Send message">↗</button></form></div>
+  return <div className="chat"><div className="chat-header"><button className="chat-back" onClick={onBack} aria-label="Back to matches">‹</button><Avatar name={match.other_name} url={match.other_photo_url} /><div><strong>{match.other_name}</strong><small>{match.other_area} · Delhi NCR</small></div><div className="chat-menu-wrap"><button className="menu-button" onClick={() => setMenu(!menu)} aria-label="Conversation options">⋯</button>{menu && <div className="chat-menu"><button onClick={() => { setMenu(false); onReport() }}>Report</button><button onClick={() => { setMenu(false); onBlock() }}>Block</button></div>}</div></div><div className="chat-messages" ref={messagesRef}>{messages.length ? messages.map(message => <div className={message.sender_id === userId ? 'bubble mine' : 'bubble'} key={message.id}><span>{message.body}</span><time>{new Date(message.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time></div>) : <div className="chat-start"><span>✺</span><h3>Say hello to {match.other_name}</h3><p>A good conversation is the first step.</p></div>}</div>{error && <div className="chat-error" role="alert">{error}</div>}<form className="chat-compose" onSubmit={send}><input aria-label="Message" maxLength={1000} placeholder="Write a message…" value={draft} onChange={e => setDraft(e.target.value)} /><button disabled={!draft.trim() || sending} aria-label="Send message">↗</button></form></div>
 }
 
 createRoot(document.getElementById('root')!).render(<MotionProvider><App /></MotionProvider>)
